@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>#024 · Hoshiyomi Seven Reboot</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Zen+Antique&family=Noto+Sans+JP:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root{
+  --paper: #f4efe6;
+  --paper2: #ede6d8;
+  --ink: #2a221a;
+  --ink2: #5c4f42;
+  --muted: #9a8a7a;
+  --rust: #b85c38;
+  --rust2: #d4784f;
+  --amber: #c49a3c;
+  --sage: #6b7c5e;
+  --line: rgba(42,34,26,.12);
+  --shadow: 0 4px 20px rgba(42,34,26,.10);
+}
+
+*{ box-sizing:border-box; margin:0; padding:0; }
+
+body{
+  font-family: 'Noto Sans JP', sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+body::before{
+  content:'';
+  position:fixed;
+  inset:0;
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 28px, rgba(42,34,26,.03) 28px, rgba(42,34,26,.03) 29px);
+  pointer-events:none;
+}
+
+.wrap{
+  max-width: 440px;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+.header{
+  text-align: center;
+  margin-bottom: 40px;
+}
+.header-label{
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: .22em;
+  color: var(--rust);
+  margin-bottom: 10px;
+}
+.header-title{
+  font-family: 'Zen Antique', serif;
+  font-size: 26px;
+  letter-spacing: .06em;
+  margin-bottom: 8px;
+}
+.header-sub{
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.cards{
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.card{
+  display: block;
+  background: #fff;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  padding: 22px 24px;
+  text-decoration: none;
+  color: inherit;
+  box-shadow: var(--shadow);
+  transition: all .2s;
+  position: relative;
+  overflow: hidden;
+}
+.card::after{
+  content:'';
+  position:absolute;
+  top:0; left:0; right:0;
+  height: 3px;
+}
+.card-form::after{ background: var(--rust); }
+.card-hoshi::after{ background: var(--amber); }
+
+.card:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(42,34,26,.14);
+}
+
+.card-label{
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: .16em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.card-title{
+  font-size: 17px;
+  font-weight: 500;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-desc{
+  font-size: 12.5px;
+  color: var(--ink2);
+  line-height: 1.7;
+}
+
+.card-badge{
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  margin-top: 10px;
+}
+.badge-daily{ background: rgba(184,92,56,.12); color: var(--rust); }
+.badge-weekly{ background: rgba(196,154,60,.12); color: var(--amber); }
+
+.card-coming{
+  opacity: .5;
+  cursor: default;
+  pointer-events: none;
+}
+.card-coming:hover{ transform: none; }
+
+.footer{
+  margin-top: 36px;
+  text-align: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: .1em;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="header">
+    <div class="header-label">QUESTQUERIES · #024</div>
+    <h1 class="header-title">星読みたち Reboot 🔮</h1>
+    <p class="header-sub">毎日のコンディションを記録して<br>星読みたちに診断してもらう</p>
+  </header>
+
+  <div class="cards">
+
+    <a href="024_form.html" class="card card-form">
+      <div class="card-label">DAILY · 毎日使う</div>
+      <div class="card-title">📝 デイリーログ</div>
+      <div class="card-desc">今日のコンディションを記録する。<br>目覚め・Mental Gage・頭に残ってること。</div>
+      <span class="card-badge badge-daily">毎日</span>
+    </a>
+
+    <div class="card card-hoshi card-coming">
+      <div class="card-label">WEEKLY · 週次で使う</div>
+      <div class="card-title">🔮 七人の星読みたち</div>
+      <div class="card-desc">蓄積したログとガーミンデータをもとに<br>星読みたちがAI診断する。</div>
+      <span class="card-badge badge-weekly">準備中</span>
+    </div>
+
+  </div>
+
+  <footer class="footer">
+    QuestQueries — qq-collective
+  </footer>
+
+</div>
+</body>
+</html>
