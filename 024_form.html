@@ -356,15 +356,21 @@ textarea:focus{ border-color: var(--rust2); background: #fff; }
 
   <!-- Garmin Banner -->
   <div class="garmin-banner">
-    <div class="garmin-info">
-      🛏 睡眠データ <strong id="garmin-last">未読込</strong><br>
-      <span id="garmin-range" style="color:var(--muted);font-size:11px;">CSVをドロップして更新</span>
-    </div>
-    <div>
-      <div class="drop-zone" id="drop-zone" onclick="document.getElementById('csv-input').click()">
-        📂 CSVをドロップ
+    <div style="flex:1;min-width:0;">
+      <div class="garmin-info">
+        🛏 睡眠 <strong id="sleep-last">未読込</strong>
+        <span id="sleep-range" style="color:var(--muted);font-size:11px;display:block;"></span>
       </div>
-      <input type="file" id="csv-input" accept=".csv" style="display:none"/>
+      <div class="garmin-info" style="margin-top:6px;">
+        💓 HRV <strong id="hrv-last">未読込</strong>
+        <span id="hrv-range" style="color:var(--muted);font-size:11px;display:block;"></span>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      <div class="drop-zone" id="drop-sleep" onclick="document.getElementById('csv-sleep').click()" style="font-size:11px;padding:7px 12px;">🛏 睡眠CSV</div>
+      <div class="drop-zone" id="drop-hrv"   onclick="document.getElementById('csv-hrv').click()"   style="font-size:11px;padding:7px 12px;">💓 HRV CSV</div>
+      <input type="file" id="csv-sleep" accept=".csv" style="display:none"/>
+      <input type="file" id="csv-hrv"   accept=".csv" style="display:none"/>
     </div>
   </div>
 
@@ -375,6 +381,7 @@ textarea:focus{ border-color: var(--rust2); background: #fff; }
     <div class="field">
       <div class="field-label"><span class="icon">📅</span>登録対象日</div>
       <input type="date" id="f-date"/>
+      <div class="field-hint" style="margin-top:6px;">💡 今日の日付で入力 — 昨日の出来事＋今朝の目覚めをセットで記録</div>
     </div>
 
     <hr class="divider"/>
@@ -580,65 +587,118 @@ function showToast(msg){
 }
 
 // ── GARMIN CSV ──
-function parseGarminCSV(text){
+
+// 睡眠CSVパース（カラム：睡眠スコア 4週間, スコア, 安静時心拍, HRVステータス, 品質, タイム...）
+function parseSleepCSV(text){
   const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
   const header = lines[0].replace(/^\uFEFF/,'').split(',');
-  const dateIdx = header.findIndex(h=>h.includes('日付')||h.includes('date'));
-  const scoreIdx = header.findIndex(h=>h.includes('スコア')||h.includes('score'));
+  const dateIdx = 0; // 1列目が日付
+  const scoreIdx = header.findIndex(h=>h==='スコア');
+  const qualityIdx = header.findIndex(h=>h==='品質');
+  const timeIdx = header.findIndex(h=>h==='タイム');
+  const bedIdx = header.findIndex(h=>h==='就寝時刻');
+  const wakeIdx = header.findIndex(h=>h==='起床時刻');
 
   const rows = lines.slice(1).map(l=>{
     const cols = l.split(',');
-    return { date: cols[dateIdx]||'', score: cols[scoreIdx]||'' };
-  }).filter(r=>r.date && r.score && r.score !== '--');
+    return {
+      date: cols[dateIdx]||'',
+      score: cols[scoreIdx]||'',
+      quality: cols[qualityIdx]||'',
+      sleepTime: cols[timeIdx]||'',
+      bedTime: cols[bedIdx]||'',
+      wakeTime: cols[wakeIdx]||'',
+    };
+  }).filter(r=>r.date && r.date !== '--');
 
   if(!rows.length) return null;
-
-  rows.sort((a,b)=>b.date.localeCompare(a.date));
   const latest = rows[0].date;
   const oldest = rows[rows.length-1].date;
+  localStorage.setItem('qq024_sleep', JSON.stringify({ rows, latest, oldest, loadedAt: new Date().toISOString() }));
+  return { latest, oldest, count: rows.length, type: 'sleep' };
+}
 
-  // localStorageに保存
-  localStorage.setItem('qq024_garmin', JSON.stringify({ rows, latest, oldest, loadedAt: new Date().toISOString() }));
-  return { latest, oldest, count: rows.length };
+// HRVCSVパース（カラム：日付, 夜間HRV, ベースライン, 7日平均）
+function parseHRVCSV(text){
+  const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
+  const header = lines[0].replace(/^\uFEFF/,'').split(',');
+  const dateIdx = header.findIndex(h=>h.includes('日付'));
+  const hrvIdx = header.findIndex(h=>h.includes('夜間HRV'));
+  const baseIdx = header.findIndex(h=>h.includes('ベースライン'));
+  const avgIdx = header.findIndex(h=>h.includes('7日平均'));
+
+  const rows = lines.slice(1).map(l=>{
+    const cols = l.split(',');
+    return {
+      date: cols[dateIdx]||'',
+      hrv: (cols[hrvIdx]||'').replace('ms','').trim(),
+      baseline: cols[baseIdx]||'',
+      avg7: (cols[avgIdx]||'').replace('ms','').trim(),
+    };
+  }).filter(r=>r.date);
+
+  if(!rows.length) return null;
+  const latest = rows[0].date;
+  const oldest = rows[rows.length-1].date;
+  localStorage.setItem('qq024_hrv', JSON.stringify({ rows, latest, oldest, loadedAt: new Date().toISOString() }));
+  return { latest, oldest, count: rows.length, type: 'hrv' };
+}
+
+// どちらのCSVか自動判定して振り分け
+function detectAndParse(text){
+  const firstLine = text.replace(/^\uFEFF/,'').split('\n')[0];
+  if(firstLine.includes('夜間HRV') || firstLine.includes('ベースライン')) return parseHRVCSV(text);
+  if(firstLine.includes('スコア') || firstLine.includes('睡眠')) return parseSleepCSV(text);
+  return null;
 }
 
 function loadGarminState(){
   try{
-    const g = JSON.parse(localStorage.getItem('qq024_garmin')||'null');
-    if(!g) return;
-    const days = Math.floor((Date.now()-new Date(g.loadedAt))/(1000*60*60*24));
-    document.getElementById('garmin-last').textContent = g.latest;
-    document.getElementById('garmin-range').textContent =
-      `${g.oldest} 〜 ${g.latest}（${g.count}日分）`;
-    if(days >= 5){
-      document.getElementById('garmin-range').innerHTML +=
-        ' <span class="garmin-warn">⚠️ ' + days + '日経過 — 更新を</span>';
+    const s = JSON.parse(localStorage.getItem('qq024_sleep')||'null');
+    if(s){
+      const days = Math.floor((Date.now()-new Date(s.loadedAt))/(1000*60*60*24));
+      document.getElementById('sleep-last').textContent = s.latest;
+      let rng = `${s.oldest} 〜 ${s.latest}（${s.count}日分）`;
+      if(days>=5) rng += ` ⚠️${days}日経過`;
+      document.getElementById('sleep-range').textContent = rng;
+    }
+    const h = JSON.parse(localStorage.getItem('qq024_hrv')||'null');
+    if(h){
+      const days = Math.floor((Date.now()-new Date(h.loadedAt))/(1000*60*60*24));
+      document.getElementById('hrv-last').textContent = h.latest;
+      let rng = `${h.oldest} 〜 ${h.latest}（${h.count}日分）`;
+      if(days>=5) rng += ` ⚠️${days}日経過`;
+      document.getElementById('hrv-range').textContent = rng;
     }
   }catch{}
 }
 
-// ドロップ＆クリック
-const dz = document.getElementById('drop-zone');
-const fi = document.getElementById('csv-input');
+// ドロップ＆クリック（両方とも同じ関数で処理、自動判定）
+function setupDrop(dropId, inputId){
+  const dz = document.getElementById(dropId);
+  const fi = document.getElementById(inputId);
+  dz.addEventListener('dragover', e=>{ e.preventDefault(); dz.classList.add('dragover'); });
+  dz.addEventListener('dragleave', ()=>dz.classList.remove('dragover'));
+  dz.addEventListener('drop', e=>{
+    e.preventDefault(); dz.classList.remove('dragover');
+    if(e.dataTransfer.files[0]) readCSV(e.dataTransfer.files[0]);
+  });
+  fi.addEventListener('change', e=>{ if(e.target.files[0]) readCSV(e.target.files[0]); });
+}
 
-dz.addEventListener('dragover', e=>{ e.preventDefault(); dz.classList.add('dragover'); });
-dz.addEventListener('dragleave', ()=>dz.classList.remove('dragover'));
-dz.addEventListener('drop', e=>{
-  e.preventDefault(); dz.classList.remove('dragover');
-  const file = e.dataTransfer.files[0];
-  if(file) readCSV(file);
-});
-fi.addEventListener('change', e=>{ if(e.target.files[0]) readCSV(e.target.files[0]); });
+setupDrop('drop-sleep','csv-sleep');
+setupDrop('drop-hrv','csv-hrv');
 
 function readCSV(file){
   const reader = new FileReader();
   reader.onload = e=>{
-    const result = parseGarminCSV(e.target.result);
+    const result = detectAndParse(e.target.result);
     if(result){
       loadGarminState();
-      showToast(`✓ ${result.count}日分の睡眠データを読込みました`);
+      const label = result.type === 'hrv' ? 'HRV' : '睡眠';
+      showToast(`✓ ${label}データ ${result.count}日分を読込みました`);
     } else {
-      showToast('CSVの形式を確認してください');
+      showToast('CSVの形式を確認してください（睡眠またはHRV）');
     }
   };
   reader.readAsText(file, 'utf-8');
